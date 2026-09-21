@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SK하이닉스 DART 재무분석 Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body{font-family:Arial,"Noto Sans KR",sans-serif;background:#f5f7fb;margin:0;color:#18212f}
+header{background:#111827;color:#fff;padding:28px 5vw}
+main{max-width:1400px;margin:28px auto;padding:0 20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+.card{background:#fff;border-radius:14px;padding:18px;box-shadow:0 3px 14px #00000012}
+.label{color:#6b7280;font-size:13px}.value{font-size:24px;font-weight:700;margin-top:8px}
+section{margin-top:22px}.chart{height:340px}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:14px;overflow:hidden}
+th,td{padding:10px;border-bottom:1px solid #eee;text-align:right}
+th:first-child,td:first-child{text-align:left}
+.small{font-size:12px;color:#6b7280}
+</style>
+</head>
+<body>
+<header><h1>SK하이닉스 DART 재무분석</h1><div>OpenDART 자동 수집 · 5개년 추세 · 재무비율 분석</div></header>
+<main>
+<div id="meta" class="small"></div>
+<section><div id="cards" class="grid"></div></section>
+<section class="card"><h2>매출 · 영업이익 · 순이익</h2><div class="chart"><canvas id="profitChart"></canvas></div></section>
+<section class="card"><h2>수익성 비율</h2><div class="chart"><canvas id="marginChart"></canvas></div></section>
+<section class="card"><h2>재무안정성</h2><div class="chart"><canvas id="stabilityChart"></canvas></div></section>
+<section class="card"><h2>연도별 주요 수치</h2><div style="overflow:auto"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div></section>
+<section class="card"><h2>해석 기준</h2>
+<p>이 대시보드는 첨부된 「재무제표 및 재무비율 실무 가이드」의 흐름인 매출 성장 → 이익률 → 현금흐름 → 차입 부담 → 투자수익률을 중심으로 표시합니다.</p>
+<p class="small">주의: 연결/별도 기준, 일회성 항목, CAPEX·ROIC 조정 정의에 따라 결과가 달라질 수 있습니다. 시장평가(PER/PBR/EV/EBITDA)는 별도 시장가격 데이터 연동이 필요합니다.</p></section>
+</main>
+<script>
+const fmt=(x,d=1)=>x==null||Number.isNaN(x)?"-":Number(x).toLocaleString("ko-KR",{maximumFractionDigits:d});
+const pct=x=>x==null?"-":fmt(x)+"%";
+fetch("data.json").then(r=>r.json()).then(data=>{
+ const rows=data.years.sort((a,b)=>a.year-b.year), labels=rows.map(x=>x.year);
+ document.getElementById("meta").textContent=`DART corp_code ${data.corp_code} · 업데이트 ${new Date(data.generated_at).toLocaleString("ko-KR")}`;
+ const last=rows[rows.length-1];
+ const cards=[
+ ["매출액",fmt(last.revenue)],
+ ["영업이익",fmt(last.operating_income)],
+ ["당기순이익",fmt(last.net_income)],
+ ["영업활동현금흐름",fmt(last.cfo)],
+ ["영업이익률",pct(last.operating_margin)],
+ ["ROE",pct(last.roe)],
+ ["ROA",pct(last.roa)],
+ ["부채비율",pct(last.debt_ratio)],
+ ["유동비율",pct(last.current_ratio)],
+ ["순차입금/EBITDA",fmt(last.net_debt_ebitda)]
+ ];
+ document.getElementById("cards").innerHTML=cards.map(c=>`<div class="card"><div class="label">${c[0]}</div><div class="value">${c[1]}</div><div class="small">${last.year}년</div></div>`).join("");
+ new Chart(document.getElementById("profitChart"),{type:"bar",data:{labels,datasets:[
+ {label:"매출액",data:rows.map(x=>x.revenue)},
+ {label:"영업이익",data:rows.map(x=>x.operating_income)},
+ {label:"당기순이익",data:rows.map(x=>x.net_income)}
+ ]},options:{responsive:true,maintainAspectRatio:false}});
+ new Chart(document.getElementById("marginChart"),{type:"line",data:{labels,datasets:[
+ {label:"매출총이익률",data:rows.map(x=>x.gross_margin)},
+ {label:"영업이익률",data:rows.map(x=>x.operating_margin)},
+ {label:"순이익률",data:rows.map(x=>x.net_margin)},
+ {label:"ROE",data:rows.map(x=>x.roe)}
+ ]},options:{responsive:true,maintainAspectRatio:false}});
+ new Chart(document.getElementById("stabilityChart"),{type:"line",data:{labels,datasets:[
+ {label:"부채비율",data:rows.map(x=>x.debt_ratio)},
+ {label:"자기자본비율",data:rows.map(x=>x.equity_ratio)},
+ {label:"유동비율",data:rows.map(x=>x.current_ratio)},
+ {label:"이자보상배율",data:rows.map(x=>x.interest_coverage)}
+ ]},options:{responsive:true,maintainAspectRatio:false}});
+ const cols=["year","revenue","operating_income","net_income","total_assets","total_liabilities","equity","cfo","net_debt","gross_margin","operating_margin","net_margin","roa","roe","debt_ratio","equity_ratio","interest_coverage","net_debt_ebitda","asset_turnover","sales_growth","cfo_net_income","dso","dio","dpo","ccc"];
+ const names={year:"연도",revenue:"매출액",operating_income:"영업이익",net_income:"순이익",total_assets:"총자산",total_liabilities:"총부채",equity:"자본",cfo:"CFO",net_debt:"순차입금",gross_margin:"매출총이익률",operating_margin:"영업이익률",net_margin:"순이익률",roa:"ROA",roe:"ROE",debt_ratio:"부채비율",equity_ratio:"자기자본비율",interest_coverage:"이자보상배율",net_debt_ebitda:"순차입금/EBITDA",asset_turnover:"총자산회전율",sales_growth:"매출증가율",cfo_net_income:"CFO/순이익",dso:"DSO",dio:"DIO",dpo:"DPO",ccc:"CCC"};
+ document.getElementById("thead").innerHTML="<tr>"+cols.map(c=>`<th>${names[c]}</th>`).join("")+"</tr>";
+ document.getElementById("tbody").innerHTML=rows.map(r=>"<tr>"+cols.map(c=>`<td>${["year"].includes(c)?fmt(r[c],0):["gross_margin","operating_margin","net_margin","roa","roe","debt_ratio","equity_ratio","sales_growth"].includes(c)?pct(r[c]):fmt(r[c])}</td>`).join("")+"</tr>").join("");
+});
+</script>
+</body></html>
