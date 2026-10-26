@@ -1,7 +1,5 @@
-import io
 import json
 import os
-import zipfile
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -66,12 +64,22 @@ def download_document(rcept_no, out_path):
     r = requests.get(f"{BASE}/document.xml", params=p, timeout=120)
     r.raise_for_status()
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    # document.xml API returns a ZIP archive. Do not save it with an .xml extension.
+    if not r.content.startswith(b"PK\\x03\\x04"):
+        try:
+            payload = r.json()
+        except ValueError:
+            payload = {}
+        if payload.get("status"):
+            raise RuntimeError(f"DART 원문 다운로드 오류: {payload.get('status')} {payload.get('message', '')}")
+        raise RuntimeError("DART 원문 응답이 ZIP 파일 형식이 아닙니다.")
+    out_path = out_path.with_suffix(".zip")
     out_path.write_bytes(r.content)
 
 def fetch_financials(years=5):
     current = date.today().year
     all_data = {}
-    for year in range(current - years + 1, current + 1):
+    for year in range(current - years, current + 1):
         # 사업보고서는 다음 해에 제출되므로 아직 존재하지 않는 연도는 정상적으로 건너뜀
         try:
             data = get_json("fnlttSinglAcntAll.json", {
@@ -94,7 +102,7 @@ def main():
         rcept = report.get("rcept_no")
         if rcept:
             try:
-                download_document(rcept, RAW / f"report_{rcept}.xml")
+                download_document(rcept, RAW / f"report_{rcept}.zip")
             except Exception as e:
                 print(f"[WARN] 원문 XML 다운로드 실패: {e}")
     else:
