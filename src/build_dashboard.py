@@ -13,7 +13,8 @@ payload = {
     "stock_code": "000660",
     "corp_code": "00164779",
     "generated_at": pd.Timestamp.now(tz="Asia/Seoul").isoformat(),
-    "years": df.to_dict(orient="records"),
+    # DataFrame.to_dict can emit float NaN for missing values; json.loads(to_json) maps them to standard JSON null.
+    "years": json.loads(df.to_json(orient="records", date_format="iso")),
 }
-(DOCS / "data.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+(DOCS / "data.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8")
 print("docs/data.json 생성 완료")
