@@ -5,7 +5,7 @@ SK하이닉스(종목코드 000660, DART corp_code 00164779)의 OpenDART 정기�
 
 ## 구성
 
-- `src/fetch_dart.py` : DART 공시검색 → 사업보고서 원문/XML 저장 + 재무제표 JSON 수집
+- `src/fetch_dart.py` : DART 공시검색 → 사업보고서 원문 ZIP 저장 + 재무제표 JSON 수집
 - `src/analyze.py` : 5개년 재무수치 정규화 및 재무비율 계산
 - `src/build_dashboard.py` : 대시보드용 `docs/data.json` 생성
 - `docs/index.html` : GitHub Pages 정적 대시보드
@@ -68,7 +68,7 @@ python src/build_dashboard.py
 
 ## GitHub Actions 자동 업데이트
 
-기본 설정은 매일 한국시간 오전 2시(UTC 17:00)에 실행됩니다.
+기본 설정은 매일 한국시간 오전 2시(UTC 17:00)에 실행됩니다. 워크플로 파일과 분석 코드가 수정되어 main에 반영되어도 실행됩니다.
 또한 Actions 탭에서 수동 실행할 수 있습니다.
 
 자동화 순서:
