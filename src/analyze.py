@@ -21,7 +21,7 @@ ALIASES = {
     "total_liabilities": ["부채총계", "부채 총계"],
     "equity": ["자본총계", "자본 총계"],
     "revenue": ["매출액", "수익(매출액)", "매출"],
-    "gross_profit": ["매출총이익"],
+    "gross_profit": ["매출총이익", "매출총이익(손실)"],
     "sga": ["판매비와관리비", "판매비와 일반관리비"],
     "operating_income": ["영업이익", "영업이익(손실)"],
     "pretax_income": ["법인세비용차감전순이익", "세전이익", "세전계속사업이익"],
@@ -36,6 +36,8 @@ ALIASES = {
     "long_borrowings": ["장기차입금", "장기차입금및사채", "사채"],
     "trade_payables": ["매입채무", "매입채무및기타채무"],
     "cost_of_sales": ["매출원가"],
+    "capex_ppe": ["유형자산의 취득"],
+    "capex_intangibles": ["무형자산의 취득"],
 }
 
 def num(v):
@@ -72,15 +74,44 @@ def pick(rows, aliases, statement=None):
     r = candidates[0]
     return num(r.get("thstrm_amount"))
 
+def pick_by_account_ids(rows, account_ids):
+    """Prefer stable DART account IDs for current and non-current borrowings."""
+    for row in rows:
+        if row.get("sj_nm") != "재무상태표":
+            continue
+        if row.get("account_id") in account_ids:
+            value = num(row.get("thstrm_amount"))
+            if value is not None:
+                return value
+    return None
+
 def extract_year(year):
     rows = rows_for_year(year)
     result = {"year": year}
     for key, aliases in ALIASES.items():
         result[key] = pick(rows, aliases)
+    # SK하이닉스 DART CFS에서는 여러 해에 걸쳐 계정명이 "차입금"으로 같으므로 계정 ID로 유동/비유동을 구분한다.
+    short_by_id = pick_by_account_ids(rows, {
+        "ifrs-full_ShorttermBorrowings",
+        "ifrs-full_CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings",
+    })
+    long_by_id = pick_by_account_ids(rows, {
+        "dart_LongTermBorrowingsGross",
+        "ifrs-full_LongtermBorrowings",
+    })
+    if short_by_id is not None:
+        result["short_borrowings"] = short_by_id
+    if long_by_id is not None:
+        result["long_borrowings"] = long_by_id
+
     # 이자부차입금 = 단기 + 장기 차입금/사채의 단순 합
     short = result.get("short_borrowings") or 0
     long = result.get("long_borrowings") or 0
     result["interest_bearing_debt"] = short + long if (result.get("short_borrowings") is not None or result.get("long_borrowings") is not None) else None
+    capex_ppe = result.get("capex_ppe")
+    capex_intangibles = result.get("capex_intangibles")
+    result["capex"] = capex_ppe + capex_intangibles if capex_ppe is not None and capex_intangibles is not None else None
+    result["fcf"] = result["cfo"] - result["capex"] if result.get("cfo") is not None and result.get("capex") is not None else None
     if result.get("cfo") is not None and result.get("ppe") is not None:
         # DART 원자료만으로 CAPEX를 완전히 일관되게 정의하기 어렵기 때문에
         # 현금흐름 세부계정 alias가 발견될 경우 아래 값을 덮어쓸 수 있게 둠.
@@ -132,7 +163,7 @@ def calculate(df):
         d["dpo"] = days_ratio(avg(prev["trade_payables"], d["trade_payables"]) if prev else None, d["cost_of_sales"])
         d["ccc"] = (d["dso"] + d["dio"] - d["dpo"]) if all(x is not None for x in [d["dso"], d["dio"], d["dpo"]]) else None
         # FCF는 가이드 정의(CFO - 현금 기준 CAPEX). CAPEX 자동 인식이 가능한 경우에만 계산.
-        d["fcf"] = None
+        d["fcf"] = d["cfo"] - d["capex"] if pd.notna(d["cfo"]) and pd.notna(d["capex"]) else None
         d["roic"] = None
         d["roic_minus_wacc"] = None
         out.append(d)
