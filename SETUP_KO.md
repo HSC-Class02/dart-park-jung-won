@@ -1,7 +1,9 @@
 # GitHub 저장소 연결 순서
 
-1. ZIP 압축을 풉니다.
-2. 기존 `dart-` 저장소에 파일을 복사합니다.
+저장소: https://github.com/HSC-Class02/dart-park-jung-won
+
+1. 저장소 최상위 폴더에서 필요한 파일을 확인합니다.
+2. 기존 `HSC-Class02/dart-park-jung-won` 저장소에 파일을 복사합니다.
 3. `DART_API_KEY`를 GitHub Actions Secret으로 등록합니다.
 4. `Settings → Pages`에서 Source를 `GitHub Actions`로 설정합니다.
 5. `Actions → DART Financial Update → Run workflow`를 한 번 실행합니다.
