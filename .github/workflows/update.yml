@@ -71,7 +71,9 @@ jobs:
           import json
           from pathlib import Path
           p = Path("docs/data.json")
-          data = json.loads(p.read_text(encoding="utf-8"))
+          def reject_constant(value):
+              raise ValueError(f"JSON 표준에 없는 값이 발견되었습니다: {value}")
+          data = json.loads(p.read_text(encoding="utf-8"), parse_constant=reject_constant)
           if not isinstance(data.get("years"), list) or not data["years"]:
               raise SystemExit("docs/data.json에 연도별 재무 데이터가 없습니다. DART API 응답과 Actions 로그를 확인하세요.")
           print(f"Dashboard data validated: {len(data['years'])} annual records")
