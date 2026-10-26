@@ -24,7 +24,7 @@ th:first-child,td:first-child{text-align:left}
 <main>
 <div id="meta" class="small"></div>
 <section><div id="cards" class="grid"></div></section>
-<section class="card"><h2>매출 · 영업이익 · 순이익</h2><div class="chart"><canvas id="profitChart"></canvas></div></section>
+<section class="card"><h2>매출 · 영업이익 · 순이익 (조 원)</h2><div class="chart"><canvas id="profitChart"></canvas></div></section>
 <section class="card"><h2>수익성 비율</h2><div class="chart"><canvas id="marginChart"></canvas></div></section>
 <section class="card"><h2>재무안정성</h2><div class="chart"><canvas id="stabilityChart"></canvas></div></section>
 <section class="card"><h2>연도별 주요 수치</h2><div style="overflow:auto"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div></section>
@@ -35,27 +35,29 @@ th:first-child,td:first-child{text-align:left}
 <script>
 const fmt=(x,d=1)=>x==null||Number.isNaN(x)?"-":Number(x).toLocaleString("ko-KR",{maximumFractionDigits:d});
 const pct=x=>x==null?"-":fmt(x)+"%";
+const money=x=>x==null?"-":fmt(Number(x)/1e8,0)+"억원";
+const trillion=x=>x==null?null:Number(x)/1e12;
 fetch("data.json").then(r=>r.json()).then(data=>{
  const rows=data.years.sort((a,b)=>a.year-b.year), labels=rows.map(x=>x.year);
  document.getElementById("meta").textContent=`DART corp_code ${data.corp_code} · 업데이트 ${new Date(data.generated_at).toLocaleString("ko-KR")}`;
  const last=rows[rows.length-1];
  const cards=[
- ["매출액",fmt(last.revenue)],
- ["영업이익",fmt(last.operating_income)],
- ["당기순이익",fmt(last.net_income)],
- ["영업활동현금흐름",fmt(last.cfo)],
+ ["매출액",money(last.revenue)],
+ ["영업이익",money(last.operating_income)],
+ ["당기순이익",money(last.net_income)],
+ ["영업활동현금흐름",money(last.cfo)],
+ ["FCF",money(last.fcf)],
  ["영업이익률",pct(last.operating_margin)],
  ["ROE",pct(last.roe)],
  ["ROA",pct(last.roa)],
  ["부채비율",pct(last.debt_ratio)],
- ["유동비율",pct(last.current_ratio)],
- ["순차입금/EBITDA",fmt(last.net_debt_ebitda)]
+ ["순차입금",money(last.net_debt)]
  ];
  document.getElementById("cards").innerHTML=cards.map(c=>`<div class="card"><div class="label">${c[0]}</div><div class="value">${c[1]}</div><div class="small">${last.year}년</div></div>`).join("");
  new Chart(document.getElementById("profitChart"),{type:"bar",data:{labels,datasets:[
- {label:"매출액",data:rows.map(x=>x.revenue)},
- {label:"영업이익",data:rows.map(x=>x.operating_income)},
- {label:"당기순이익",data:rows.map(x=>x.net_income)}
+ {label:"매출액",data:rows.map(x=>trillion(x.revenue))},
+ {label:"영업이익",data:rows.map(x=>trillion(x.operating_income))},
+ {label:"당기순이익",data:rows.map(x=>trillion(x.net_income))}
  ]},options:{responsive:true,maintainAspectRatio:false}});
  new Chart(document.getElementById("marginChart"),{type:"line",data:{labels,datasets:[
  {label:"매출총이익률",data:rows.map(x=>x.gross_margin)},
@@ -69,10 +71,12 @@ fetch("data.json").then(r=>r.json()).then(data=>{
  {label:"유동비율",data:rows.map(x=>x.current_ratio)},
  {label:"이자보상배율",data:rows.map(x=>x.interest_coverage)}
  ]},options:{responsive:true,maintainAspectRatio:false}});
- const cols=["year","revenue","operating_income","net_income","total_assets","total_liabilities","equity","cfo","net_debt","gross_margin","operating_margin","net_margin","roa","roe","debt_ratio","equity_ratio","interest_coverage","net_debt_ebitda","asset_turnover","sales_growth","cfo_net_income","dso","dio","dpo","ccc"];
- const names={year:"연도",revenue:"매출액",operating_income:"영업이익",net_income:"순이익",total_assets:"총자산",total_liabilities:"총부채",equity:"자본",cfo:"CFO",net_debt:"순차입금",gross_margin:"매출총이익률",operating_margin:"영업이익률",net_margin:"순이익률",roa:"ROA",roe:"ROE",debt_ratio:"부채비율",equity_ratio:"자기자본비율",interest_coverage:"이자보상배율",net_debt_ebitda:"순차입금/EBITDA",asset_turnover:"총자산회전율",sales_growth:"매출증가율",cfo_net_income:"CFO/순이익",dso:"DSO",dio:"DIO",dpo:"DPO",ccc:"CCC"};
+ const cols=["year","revenue","gross_profit","operating_income","net_income","total_assets","total_liabilities","equity","cfo","capex","fcf","net_debt","gross_margin","operating_margin","net_margin","roa","roe","current_ratio","debt_ratio","equity_ratio","debt_to_assets","interest_coverage","net_debt_ebitda","asset_turnover","sales_growth","cfo_net_income","dso","dio","dpo","ccc"];
+ const names={year:"연도",revenue:"매출액",gross_profit:"매출총이익",operating_income:"영업이익",net_income:"순이익",total_assets:"총자산",total_liabilities:"총부채",equity:"자본",cfo:"CFO",capex:"CAPEX",fcf:"FCF",net_debt:"순차입금",gross_margin:"매출총이익률",operating_margin:"영업이익률",net_margin:"순이익률",roa:"ROA",roe:"ROE",current_ratio:"유동비율",debt_ratio:"부채비율",equity_ratio:"자기자본비율",debt_to_assets:"차입금의존도",interest_coverage:"이자보상배율",net_debt_ebitda:"순차입금/EBITDA",asset_turnover:"총자산회전율",sales_growth:"매출증가율",cfo_net_income:"CFO/순이익",dso:"DSO",dio:"DIO",dpo:"DPO",ccc:"CCC"};
+ const moneyCols=["revenue","gross_profit","operating_income","net_income","total_assets","total_liabilities","equity","cfo","capex","fcf","net_debt"];
+ const percentCols=["gross_margin","operating_margin","net_margin","roa","roe","current_ratio","debt_ratio","equity_ratio","debt_to_assets","sales_growth"];
  document.getElementById("thead").innerHTML="<tr>"+cols.map(c=>`<th>${names[c]}</th>`).join("")+"</tr>";
- document.getElementById("tbody").innerHTML=rows.map(r=>"<tr>"+cols.map(c=>`<td>${["year"].includes(c)?fmt(r[c],0):["gross_margin","operating_margin","net_margin","roa","roe","debt_ratio","equity_ratio","sales_growth"].includes(c)?pct(r[c]):fmt(r[c])}</td>`).join("")+"</tr>").join("");
+ document.getElementById("tbody").innerHTML=rows.map(r=>"<tr>"+cols.map(c=>`<td>${c==="year"?fmt(r[c],0):moneyCols.includes(c)?money(r[c]):percentCols.includes(c)?pct(r[c]):fmt(r[c])}</td>`).join("")+"</tr>").join("");
 });
 </script>
 </body></html>
