@@ -1,0 +1,104 @@
+name: DART Financial Update
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 매일 한국시간 02:00 (UTC 17:00)
+    - cron: "0 17 * * *"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+      - "src/**"
+      - "requirements.txt"
+      - "docs/index.html"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+
+      - name: Verify API secret
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: |
+          if [ -z "$DART_API_KEY" ]; then
+            echo "::error::Repository secret DART_API_KEY가 없습니다. Settings > Secrets and variables > Actions에서 등록하세요."
+            exit 1
+          fi
+          echo "DART_API_KEY secret is configured."
+
+      - name: Fetch DART disclosures and financial statements
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python src/fetch_dart.py
+
+      - name: Analyze financial statements
+        run: python src/analyze.py
+
+      - name: Build dashboard data
+        run: python src/build_dashboard.py
+
+      - name: Validate generated dashboard data
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("docs/data.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          if not isinstance(data.get("years"), list) or not data["years"]:
+              raise SystemExit("docs/data.json에 연도별 재무 데이터가 없습니다. DART API 응답과 Actions 로그를 확인하세요.")
+          print(f"Dashboard data validated: {len(data['years'])} annual records")
+          PY
+
+      - name: Commit refreshed source and analysis data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data docs/data.json
+          if git diff --cached --quiet; then
+            echo "No financial data changes to commit."
+          else
+            git commit -m "chore: update SK hynix DART financial data"
+            git push
+          fi
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload dashboard artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs
+
+      - name: Deploy dashboard to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
