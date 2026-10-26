@@ -66,7 +66,7 @@ def download_document(rcept_no, out_path):
     r.raise_for_status()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     # document.xml API returns a ZIP archive. Do not save it with an .xml extension.
-    if not r.content.startswith(b"PK\\x03\\x04"):
+    if not r.content.startswith(b"PK\x03\x04"):
         try:
             root = ET.fromstring(r.content)
             status = root.findtext("status") or "unknown"
