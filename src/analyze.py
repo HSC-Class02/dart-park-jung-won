@@ -100,6 +100,11 @@ def avg(a, b):
 def pct(x):
     return None if x is None else x * 100
 
+def days_ratio(numerator, denominator):
+    """Convert a ratio to days, preserving missing values."""
+    value = safe_div(numerator, denominator)
+    return None if value is None else 365 * value
+
 def calculate(df):
     out = []
     prev = None
@@ -122,9 +127,9 @@ def calculate(df):
         d["roe"] = pct(safe_div(d["net_income"], avg(prev["equity"], d["equity"]) if prev else None))
         d["sales_growth"] = pct(safe_div(d["revenue"], prev["revenue"]) - 1) if prev and safe_div(d["revenue"], prev["revenue"]) is not None else None
         d["cfo_net_income"] = safe_div(d["cfo"], d["net_income"])
-        d["dso"] = 365 * safe_div(avg(prev["receivables"], d["receivables"]) if prev else None, d["revenue"])
-        d["dio"] = 365 * safe_div(avg(prev["inventory"], d["inventory"]) if prev else None, d["cost_of_sales"])
-        d["dpo"] = 365 * safe_div(avg(prev["trade_payables"], d["trade_payables"]) if prev else None, d["cost_of_sales"])
+        d["dso"] = days_ratio(avg(prev["receivables"], d["receivables"]) if prev else None, d["revenue"])
+        d["dio"] = days_ratio(avg(prev["inventory"], d["inventory"]) if prev else None, d["cost_of_sales"])
+        d["dpo"] = days_ratio(avg(prev["trade_payables"], d["trade_payables"]) if prev else None, d["cost_of_sales"])
         d["ccc"] = (d["dso"] + d["dio"] - d["dpo"]) if all(x is not None for x in [d["dso"], d["dio"], d["dpo"]]) else None
         # FCF는 가이드 정의(CFO - 현금 기준 CAPEX). CAPEX 자동 인식이 가능한 경우에만 계산.
         d["fcf"] = None
