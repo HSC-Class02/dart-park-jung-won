@@ -38,7 +38,7 @@ PER/PBR/EV/EBITDA는 DART 재무정보만으로 현재 주가를 만들 수 없�
 
 1. OpenDART에서 인증키를 발급합니다.
 2. GitHub 저장소:
-   https://github.com/sgk70062-code/dart-
+   https://github.com/HSC-Class02/dart-park-jung-won
 3. `Settings → Secrets and variables → Actions → New repository secret`
 4. Name: `DART_API_KEY`
 5. Value: 발급받은 40자리 인증키
