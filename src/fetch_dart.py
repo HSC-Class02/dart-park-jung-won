@@ -55,7 +55,7 @@ def find_reports():
     })
     rows = data.get("list", [])
     for row in rows:
-        if "사업보고서" in row.get("report_nm", "") and "정정" not in row.get("report_nm", ""):
+        if "사업보고서" in row.get("report_nm", ""):
             return row
     return None
 
@@ -102,10 +102,14 @@ def main():
         save_json(RAW / "latest_report.json", report)
         rcept = report.get("rcept_no")
         if rcept:
-            try:
-                download_document(rcept, RAW / f"report_{rcept}.zip")
-            except Exception as e:
-                print(f"[WARN] 원문 XML 다운로드 실패: {e}")
+            archive_path = RAW / f"report_{rcept}.zip"
+            if archive_path.exists():
+                print(f"[INFO] 원문 ZIP이 이미 있어 다운로드를 생략합니다: {archive_path.name}")
+            else:
+                try:
+                    download_document(rcept, archive_path)
+                except Exception as e:
+                    print(f"[WARN] 원문 ZIP 다운로드 실패: {e}")
     else:
         print("[WARN] 최근 정기보고서를 찾지 못했습니다.")
     fetch_financials(years=5)
