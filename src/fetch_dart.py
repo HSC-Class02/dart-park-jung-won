@@ -1,5 +1,6 @@
 import json
 import os
+import xml.etree.ElementTree as ET
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -56,7 +57,7 @@ def find_reports():
     for row in rows:
         if "사업보고서" in row.get("report_nm", "") and "정정" not in row.get("report_nm", ""):
             return row
-    return rows[0] if rows else None
+    return None
 
 def download_document(rcept_no, out_path):
     # OpenDART 공시 원문 다운로드 API
@@ -67,19 +68,19 @@ def download_document(rcept_no, out_path):
     # document.xml API returns a ZIP archive. Do not save it with an .xml extension.
     if not r.content.startswith(b"PK\\x03\\x04"):
         try:
-            payload = r.json()
-        except ValueError:
-            payload = {}
-        if payload.get("status"):
-            raise RuntimeError(f"DART 원문 다운로드 오류: {payload.get('status')} {payload.get('message', '')}")
-        raise RuntimeError("DART 원문 응답이 ZIP 파일 형식이 아닙니다.")
+            root = ET.fromstring(r.content)
+            status = root.findtext("status") or "unknown"
+            message = root.findtext("message") or r.text[:200]
+        except ET.ParseError:
+            status, message = "unknown", r.text[:200]
+        raise RuntimeError(f"DART 원문 다운로드 오류: {status} {message}")
     out_path = out_path.with_suffix(".zip")
     out_path.write_bytes(r.content)
 
 def fetch_financials(years=5):
     current = date.today().year
     all_data = {}
-    for year in range(current - years, current + 1):
+    for year in range(current - years, current):
         # 사업보고서는 다음 해에 제출되므로 아직 존재하지 않는 연도는 정상적으로 건너뜀
         try:
             data = get_json("fnlttSinglAcntAll.json", {
